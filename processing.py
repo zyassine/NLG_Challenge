@@ -123,7 +123,7 @@ def transformMrToVectors(mrs, embeddings):
         
             
 def getProcessedData(file):
-    X, y = readData('data/devset.csv')
+    X, y = readData(file)
 
 
     y, y_id2word, y_word2id = processRef(y)
@@ -137,7 +137,7 @@ def getProcessedData(file):
     X_vectors = np.array(X_vectors)
     y_vectors = np.array(y_vectors)
     
-    return X_vectors, y_vectors
+    return embeddings, X_vectors, y_vectors
 
 
 
