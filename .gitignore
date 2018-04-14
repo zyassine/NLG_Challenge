@@ -1,4 +1,4 @@
 ressources/*
 *.ipynb
-_pychache_/*
+__pychache__/*
 .DS_Store
