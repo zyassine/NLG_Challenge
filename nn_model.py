@@ -1,53 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import pandas as pd
-import numpy as np
-
 from keras import backend as K
-from keras.models import Sequential, Model
-from keras.layers import Embedding, LSTM, RepeatVector, Dense, Activation, Input, Flatten, Reshape, Permute, Lambda
-from keras.layers.merge import multiply, concatenate, Concatenate, Dot
-from keras.layers.wrappers import TimeDistributed, Bidirectional
-from keras.callbacks import ModelCheckpoint
+from keras.models import Model, model_from_json
+from keras.layers import LSTM, RepeatVector, Dense, Input, Flatten, Reshape, Permute, Lambda
+from keras.layers.merge import multiply, concatenate
+from keras.layers.wrappers import Bidirectional
 from keras.optimizers import Adam
 
-from processing import getProcessedData
+Tx = 20
+Ty = 40
+n_a = 64
+n_s = 128
+embeddings_weights_shape = 300
+ref_file = 'ressources/ref_size.txt'
 
 
-embeddings, X_vectors, y_vectors = getProcessedData('data/devset.csv')
-
-embeddings_weights = embeddings.syn0
-Tx = X_vectors.shape[1]
-Ty = y_vectors.shape[1]
-ref_words_size = y_vectors.shape[2]
-m = X_vectors.shape[0]
-
-
-
-def model(n_a, n_s):
+def ecoder_decoder_model(ref_words_size):
     """
-    n_a : hidden state size of the Pre-LSTM
-    n_s : hidden state size of the post-attention LSTM
-    embeddings_weights: embeddings weights
+
     """
     
-    X = Input(shape=(Tx, embeddings_weights.shape[1]))
+    X = Input(shape=(Tx, embeddings_weights_shape))
     
         
     #Pre-attention LSTM (encoder)
     encoder = Bidirectional(LSTM(n_a, dropout=0.2, return_sequences=True))(X)
     
     #Attention model
-    flattened = Flatten()(encoder)
+    flat_layer = Flatten()(encoder)
     attention_outputs = []
     
     for t in range(Ty):
-        weighted = Dense(Tx, activation='softmax')(flattened)
-        unfolded = Permute([2, 1])(RepeatVector(n_a * 2)(weighted))
-        multiplied = multiply([encoder, unfolded])
-        summed = Lambda(lambda x: K.sum(x, axis=-2))(multiplied)
-        attention_outputs.append(Reshape((1, n_a * 2))(summed))
+        A = Dense(Tx, activation='softmax')(flat_layer)
+        B = Permute([2, 1])(RepeatVector(n_a * 2)(A))
+        C = multiply([encoder, B])
+        D = Lambda(lambda x: K.sum(x, axis=-2))(C)
+        attention_outputs.append(Reshape((1, n_a * 2))(D))
     
     attention_out = concatenate(attention_outputs, axis=-2)
     
@@ -62,37 +51,59 @@ def model(n_a, n_s):
         
     return model
 
-
-n_a = 64
-n_s = 128
-model = model(n_a, n_s)
-
-model.summary()
-
-
-model.compile(optimizer=Adam(lr=0.005, beta_1=0.9, beta_2=0.999, decay=0.01),
-                    metrics=['accuracy'],
-                    loss='categorical_crossentropy')
-
-outputs = list(y_vectors.swapaxes(0,1))
-
-model.fit(X_vectors, y_vectors, epochs=4, batch_size=64)
-
-X_sample = X_vectors[:10,:,:]
-
-y_sample = model.predict(X_sample)
+def run_model(X_vectors, y_vectors, y_id2word, model_path, print_model):
+    
+    ref_words_size = y_vectors.shape[2]
+    
+    #with open(ref_file, 'a') as f:
+    #    f.write(str(ref_words_size))
+    
+    model = ecoder_decoder_model(ref_words_size)
+    
+    if(print_model):
+        print(model.summary())
 
 
-t = np.argmax(y_sample, axis=2)
+    model.compile(optimizer=Adam(lr=0.01), metrics=['accuracy'], loss='categorical_crossentropy')
+    model.fit(X_vectors, y_vectors, epochs=1, batch_size=64)
+    
+    model_json = model.to_json()
+    with open("ressources/model.json", "w") as json_file:
+        json_file.write(model_json)
+    model.save_weights("ressources/model.h5")
+    #model.save_weights(model_path)
+    
+    
+    
+    
+    
 
-t1 = y_sample[0,:,:]
+
+def predict_model(X_vectors):
+    print('Loading model...')
+    json_file = open('ressources/model.json', 'r')
+    loaded_model_json = json_file.read()
+    json_file.close()
+    model = model_from_json(loaded_model_json)
+    
+    #with open(ref_file) as f:
+    #   ref_words_size = int(f.readline())
+    
+    model.load_weights("ressources/model.h5")
+    model.compile(optimizer=Adam(lr=0.01), metrics=['accuracy'], loss='categorical_crossentropy')
+    print('Predicting...')
+    y_predict = model.predict(X_vectors)
+    
+    return y_predict
+    
+    
+    
 
 
 
 
 
+    
 
-
-
-
+    
 

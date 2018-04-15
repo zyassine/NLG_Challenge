@@ -7,11 +7,12 @@ import re
 import gensim
 from keras.preprocessing.text import text_to_word_sequence
 from collections import Counter
+from utils import saveToPickle
 
 
 VOCAB_SIZE = 1000
 REF_MAX_LEN = 40
-MR_MAX_LEN = 20 #The minimum must be 19 wich is the longest MR sentence
+MR_MAX_LEN = 20 
 END = 'END'
 NOTIN = 'NOTIN'
 PAD = 'PAD'
@@ -113,16 +114,19 @@ def transformMrToVectors(mrs, embeddings):
             for v in values:
                 if(v in embeddings.vocab):
                     vect.append(embeddings[v])
-                    
-        for i in range(len(vect), MR_MAX_LEN):
-            vect.append(np.zeros((300,)))
+        
+        if(len(vect) > MR_MAX_LEN):
+            vect = vect[:MR_MAX_LEN]  
+        else:
+            for i in range(len(vect), MR_MAX_LEN):
+                vect.append(np.zeros((300,)))
             
         X_vectors.append(vect)
         
     return X_vectors
         
             
-def getProcessedData(file):
+def getProcessedDataTrain(file):
     X, y = readData(file)
 
 
@@ -137,9 +141,28 @@ def getProcessedData(file):
     X_vectors = np.array(X_vectors)
     y_vectors = np.array(y_vectors)
     
-    return embeddings, X_vectors, y_vectors
+    saveToPickle(y_id2word)
+    
+    return X_vectors, y_vectors, y_id2word
 
 
+def getProcessedDataTest(test_path):
+    df = pd.read_csv(test_path)
+    X = []
+    for i in range(len(df)):
+        mr = df.iloc[i,0]
+        mr_dict = getIdDict(mr)
+        X.append(mr_dict)
+    
+    embeddings = getWord2Vec()
+    X_vectors = transformMrToVectors(X, embeddings)
+    X_vectors = np.array(X_vectors)
+    
+    return X_vectors
+
+
+    
+    
 
 
                                  
