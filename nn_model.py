@@ -8,12 +8,11 @@ from keras.layers.merge import multiply, concatenate
 from keras.layers.wrappers import Bidirectional
 from keras.optimizers import Adam
 
-Tx = 20
-Ty = 40
-n_a = 64
-n_s = 128
+Tx = 20 #Size of the input
+Ty = 40 #Size of the output
+n_a = 64 #Number of layer in the encoder
+n_s = 128 #Number of layer in the decoder
 embeddings_weights_shape = 300
-ref_file = 'ressources/ref_size.txt'
 
 
 def ecoder_decoder_model(ref_words_size):
@@ -55,15 +54,13 @@ def run_model(X_vectors, y_vectors, y_id2word, model_path, print_model):
     
     ref_words_size = y_vectors.shape[2]
     
-    #with open(ref_file, 'a') as f:
-    #    f.write(str(ref_words_size))
-    
+    #Create the model
     model = ecoder_decoder_model(ref_words_size)
     
     if(print_model):
         print(model.summary())
 
-
+    #Compile the model then fit
     model.compile(optimizer=Adam(lr=0.01), metrics=['accuracy'], loss='categorical_crossentropy')
     model.fit(X_vectors, y_vectors, epochs=1, batch_size=64)
     
@@ -80,17 +77,18 @@ def run_model(X_vectors, y_vectors, y_id2word, model_path, print_model):
 
 
 def predict_model(X_vectors):
+    
+    #Loading the model
     print('Loading model...')
     json_file = open('ressources/model.json', 'r')
     loaded_model_json = json_file.read()
     json_file.close()
     model = model_from_json(loaded_model_json)
     
-    #with open(ref_file) as f:
-    #   ref_words_size = int(f.readline())
     
     model.load_weights("ressources/model.h5")
     model.compile(optimizer=Adam(lr=0.01), metrics=['accuracy'], loss='categorical_crossentropy')
+    
     print('Predicting...')
     y_predict = model.predict(X_vectors)
     
